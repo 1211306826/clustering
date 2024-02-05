@@ -10,6 +10,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
+from io import StringIO
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -282,7 +283,20 @@ def hierarchical_dendrograms(data):
     plt.tight_layout()
     st.pyplot(fig)
     
-# Visualization Summary
+# Results Summary
+def results_summary(datasets, titles):
+    db = []
+    ch = []
+    sil = []
+    for data in datasets:
+        X = data.drop('Cluster', axis=1)
+        y = data['Cluster']
+        db.append(davies_bouldin_score(X, y))
+        ch.append(calinski_harabasz_score(X, y))
+        sil.append(silhouette_score(X, y))
+    results = pd.DataFrame({'Davies Bouldin': db, 'Calinski Harabasz': ch, 'Silhouette': sil}, index=titles)
+    st.dataframe(results)
+    
 def plot_pca_2d_kmeans_comparison(datasets, titles):
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     
@@ -354,7 +368,7 @@ def plot_snake_plot(best_data):
 def main():
     st.title('Shopping Mall Customer Segmentation')
     st.sidebar.title("Navigation")
-    sections = ["EDA", "Clustering", "Elbow Plots", "Dendrograms", "Visualization Summary", "Best Model Summary"]
+    sections = ["EDA", "Clustering", "Elbow Plots", "Dendrograms", "Results Summary", "Best Model"]
     selected_section = st.sidebar.radio("Go to", sections)
 
     df = pd.read_csv('Mall_Customers.csv', index_col='CustomerID')
@@ -384,6 +398,11 @@ def main():
         st.subheader("Data Overview")
         st.markdown('<h4 style="margin-bottom:0px;">First 5 rows</h4>', unsafe_allow_html=True)
         st.write(df.head())
+        buffer = StringIO()
+        df.info(buf=buffer)
+        s = buffer.getvalue()
+        st.markdown('<h4 style="margin-bottom:0px;">Dataframe Information</h4>', unsafe_allow_html=True)
+        st.text(s)
         st.markdown('<h4 style="margin-bottom:0px;">Missing values</h4>', unsafe_allow_html=True)
         missing_values = df.isna().sum().reset_index()
         missing_values.columns = ['Feature', 'Number of Missing Values']
@@ -472,8 +491,16 @@ def main():
     elif selected_section == "Dendrograms":
         st.header("Dendrograms")
         hierarchical_dendrograms(df_cleaned)
-    elif selected_section == "Visualization Summary":
-        st.header("Visualization Summary")
+    elif selected_section == "Results Summary":
+        st.header("Results Summary")
+        results_summary([kmeans_base, kmeans_minmax, kmeans_standard, 
+                         hac_base_complete, hac_base_single, hac_base_average, hac_base_ward,
+                         hac_minmax_complete, hac_minmax_single, hac_minmax_average, hac_minmax_ward,
+                         hac_standard_complete, hac_standard_single, hac_standard_average, hac_standard_ward], 
+                        ['OHE_None_kMeans', 'OHE_MinMaxScaling_kMeans', 'OHE_StandardScaling_kMeans', 
+                         'OHE_None_complete_HAC', 'OHE_None_single_HAC', 'OHE_None_average_HAC', 'OHE_None_ward_HAC',
+                         'OHE_MinMaxScaling_complete_HAC', 'PCA_OHE_MinMaxScaling_single_HAC', 'PCA_OHE_MinMaxScaling_average_HAC', 'PCA_OHE_MinMaxScaling_ward_HAC',
+                         'OHE_StandardScaling_complete_HAC', 'PCA_OHE_StandardScaling_single_HAC', 'PCA_OHE_StandardScaling_average_HAC', 'PCA_OHE_StandardScaling_ward_HAC'])
         st.subheader("k-Means (PCA)")
         plot_pca_2d_kmeans_comparison([kmeans_base, kmeans_minmax, kmeans_standard],
                                       ['PCA_OHE_None_kMeans', 'PCA_OHE_MinMaxScaling_kMeans', 'PCA_OHE_StandardScaling_kMeans'])
@@ -485,7 +512,7 @@ def main():
                   'PCA_OHE_MinMaxScaling_complete_HAC', 'PCA_OHE_MinMaxScaling_single_HAC', 'PCA_OHE_MinMaxScaling_average_HAC', 'PCA_OHE_MinMaxScaling_ward_HAC',
                 'PCA_OHE_StandardScaling_complete_HAC', 'PCA_OHE_StandardScaling_single_HAC', 'PCA_OHE_StandardScaling_average_HAC', 'PCA_OHE_StandardScaling_ward_HAC']
         plot_pca_2d_hac_comparison(datasets, titles)
-    elif selected_section == "Best Model Summary":
+    elif selected_section == "Best Model":
         st.header("Summary Statistics")
         generate_summary_statistics(df.copy(), kmeans_base)
         st.header("Snake Plot")
